@@ -1,4 +1,3 @@
-from operator import add
 from matplotlib.colors import ListedColormap
 from sklearn.datasets import load_iris
 import numpy as np
@@ -29,6 +28,7 @@ class StandardScaling():
         return self
     def transform(self,X):
         return (X-self.mean_)/self.std_
+    
 class SoftMaxRegression():
     def __init__(self, random_state, epoch):
         self.random_state = random_state 
