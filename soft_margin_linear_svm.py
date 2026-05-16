@@ -73,6 +73,7 @@ class SVM():
     
     def predict(self, X):
         self.predict_proba_ = (np.dot(X , self.theta_) + self.intercept_).reshape(-1)
+        print((np.dot(X,self.theta_) + self.intercept_).shape)
         return self.predict_proba_ >= 0
 
 
@@ -87,7 +88,7 @@ def main():
     std_scaling.fit(X_train)
     X_train = std_scaling.transform(X_train) 
 
-    svm = SVM(C=100)
+    svm = SVM(C=10)
 
     svm.fit(X_train , y_train)
 
