@@ -1,15 +1,21 @@
 #This contains my rbf seapration stuff
 from matplotlib.colors import ListedColormap
-from sklearn.datasets import load_iris
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_circles
 
-def add_feat(X):
-    lamd = 20
-    center = np.zeros((1,2))
-    rbf_val = np.exp(-1 * lamd * np.sum((X-center) * (X-center), axis=1)).reshape(-1)
-    return np.c_[rbf_val , X]
+def rbf_kernel(X1 , X2):
+    diff = X1 - X2
+    return np.exp(-1 * 1 * np.dot(diff, diff)) 
+
+def predict_val(X_pred , X_train , y , alpha):
+    prediction_list = []
+    for each_x in X_pred:
+        total_val = 0
+        for index , item in enumerate(alpha):
+            total_val += item * y[index] * rbf_kernel(each_x , X_train[index]) 
+        prediction_list.append(total_val)
+    return np.array(prediction_list)
 
 def accuracy(y_train ,y_test):
     equal_val = y_train == y_test
@@ -43,13 +49,12 @@ class StandardScaling():
         return (X-self.mean_)/self.std_
 
 class SMO():
-    def __init__(self, X , y , alpha, c ,theta, intercept):
+    def __init__(self, X , y , alpha, c , intercept):
         self.X_ = X
         self.alpha_ = alpha
         self.y_ = y
         self.c_ = c
         self.eps_ = 1e-05
-        self.theta_ = theta
         self.tol_ = 0.001
         self.intercept_ = intercept
         self.bound_ = list(range(len(self.X_)))
@@ -66,8 +71,9 @@ class SMO():
         y2 = self.y_[index_two]
         x1 = self.X_[index_one]
         x2 = self.X_[index_two]
-
-        E1 = (np.dot(x1 , self.theta_) - self.intercept_).reshape(-1)[0] - y1
+        
+        predicted_for_one = predict_val(x1.reshape((1,2)) , self.X_ , self.y_ , self.alpha_ )
+        E1 = predicted_for_one[0] - y1 # fix
         s = y1 * y2
         if (y1 == y2):
             L = max(0 , alpha_two + alpha_one - self.c_)
@@ -80,9 +86,9 @@ class SMO():
             return False
 
 
-        k11 = np.dot(x1 , x1.T).reshape(-1)[0]
-        k12 = np.dot(x1 , x2.T).reshape(-1)[0]
-        k22 = np.dot(x2 , x2.T).reshape(-1)[0]
+        k11 = rbf_kernel(x1 , x1)
+        k12 = rbf_kernel(x1 , x2)
+        k22 = rbf_kernel(x2 , x2)
 
         eta = k11 + k22 - 2 * k12
 
@@ -125,7 +131,6 @@ class SMO():
         self.alpha_[index_one] = a1
         self.alpha_[index_two] = a2
 
-        self.theta_ = self.theta_ + y1 * (a1 - alpha_one) * x1.reshape(-1,1) + y2 * (a2 - alpha_two) * x2.reshape(-1,1)
         return True
 
     def set_bound_unbound(self):
@@ -145,7 +150,8 @@ class SMO():
     def max_absolute_error(self , E2):
         to_compare_y  = self.y_[self.unbound_]
         to_compare_x = self.X_[self.unbound_]
-        full_err = (np.dot(to_compare_x , self.theta_) - self.intercept_ ).reshape(-1) - to_compare_y 
+        predicted_for_one = predict_val(to_compare_x , self.X_ , self.y_ , self.alpha_ )
+        full_err = predicted_for_one - to_compare_y # fix 
         abs_err = np.abs(full_err - E2)
 
         return self.unbound_[abs_err.argmax()] 
@@ -153,8 +159,8 @@ class SMO():
     def examineExample(self, index_two):
         y2 = self.y_[index_two]
         alpha_two  = self.alpha_[index_two]
-        dot_prod = (np.dot(self.X_[index_two] , self.theta_) - self.intercept_).reshape(-1)
-        E2 = dot_prod[0] - y2 
+        predicted_for_one = predict_val(self.X_[index_two].reshape((1,2)) , self.X_ , self.y_ , self.alpha_ )
+        E2 = predicted_for_one[0] - y2 
         r2 = E2 * y2
         if len(self.bound_) > 0:
             random_bound_index = np.random.randint(len(self.bound_))
@@ -203,7 +209,7 @@ class SMO():
             elif(numChanged == 0):
                 examineAll = True
         print(iter)
-        return self.theta_ , self.intercept_
+        return self.intercept_ ,self.alpha_
         
 
 class SVM():
@@ -212,20 +218,18 @@ class SVM():
 
     def fit(self , X , y):
         np.random.seed(42)
-        self.theta_ = np.random.rand(3,1)
-        print(self.theta_)
-        np.random.seed(42)
+        self.X = X
         self.intercept_ = np.random.rand(1,1)
-        y_b = y.astype("int8").copy()
-        y_b[y_b == 0] = -1
-        total_data = len(X)
+        self.y_b = y.astype("int8").copy()
+        self.y_b[self.y_b == 0] = -1
+        total_data = len(self.X)
         self.alpha_ = np.zeros((total_data , )) 
-        smo = SMO(X , y_b , self.alpha_.copy() , self.c_, self.theta_.copy(), self.intercept_.copy())
-        self.theta_ , self.intercept_ = smo.main_routine()
+        smo = SMO(self.X , self.y_b , self.alpha_.copy() , self.c_, self.intercept_.copy())
+        self.intercept_ ,self.alpha_= smo.main_routine()
         return self
     
     def predict(self, X):
-        self.predict_proba_ = (np.dot(X , self.theta_) - self.intercept_).reshape(-1)
+        self.predict_proba_ = predict_val(X , self.X , self.y_b , self.alpha_ )
         return self.predict_proba_ >= 0
 
 
@@ -234,15 +238,13 @@ def main():
     X ,y = make_circles(n_samples=500 , factor=0.5 , noise=0.05 , random_state=42)
     train_test_split = TrainTestSplit(X, y , 0.8 ,  42)
     X_train , X_test , y_train , y_test , _ = train_test_split.do_splitting()
-    X_train = add_feat(X_train)
     std_scaling = StandardScaling()
     std_scaling.fit(X_train)
     X_train = std_scaling.transform(X_train) 
 
-    svm = SVM(C=10)
+    svm = SVM(C=100)
 
     svm.fit(X_train , y_train)
-    X_test = add_feat(X_test)
     X_test = std_scaling.transform(X_test)
     y_predict = svm.predict(X_test)
 
@@ -250,7 +252,6 @@ def main():
 
     print(f"The accuracy is : {accuracy_val}")
     print("The model parameters are")
-    print(svm.theta_)
     print(svm.intercept_)
 
     ############### Plotting Purposes #########################
@@ -262,7 +263,6 @@ def main():
             np.linspace(-1,1, 200).reshape(-1,1),
             )
     X_new = np.c_[x0.ravel(), x1.ravel()]
-    X_new = add_feat(X_new)
     X_new = std_scaling.transform(X_new)
     y_predict_plot = svm.predict(X_new)
     y_predict_plot_proba = svm.predict_proba_ 
@@ -283,6 +283,7 @@ def main():
     
     plt.show()
 main()
+
 
 
 
