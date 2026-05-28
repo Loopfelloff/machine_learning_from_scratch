@@ -1,5 +1,7 @@
 import numpy as np
 from sklearn.datasets import load_iris
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 
 #values , count = np.unique(check_arr , return_counts=True)
 class DecisionTreeNode():
@@ -168,6 +170,31 @@ def main():
     decision_clf = DecisionTreeClassifier()
     decision_clf.fit(X_iris , y_iris)
     y_predict = decision_clf.predict(X_iris)
+        ############### Plotting Purposes #########################
+
+    custom_cmap = ListedColormap(["#fafab0", "#9898ff", "#a0faa0"])
+
+    x0 , x1 = np.meshgrid(
+            np.linspace(-1,7,500).reshape(-1,1),
+            np.linspace(-1,3, 200).reshape(-1,1),
+            )
+    X_new = np.c_[x0.ravel(), x1.ravel()]
+    y_predict_plot = np.array(decision_clf.predict(X_new)) 
+    zz = y_predict_plot.reshape(x0.shape)
+    plt.figure(figsize=(10, 4))
+    plt.contourf(x0, x1, zz, cmap=custom_cmap)
+    plt.xlabel("Petal length")
+    plt.ylabel("Petal width")
+    plt.grid()
+    ##################################################
+    plt.plot(X_iris[ y_iris == 0 , 0 ],  X_iris[y_iris == 0 , 1] , "o")
+    plt.plot(X_iris[ y_iris == 1 , 0 ],  X_iris[y_iris == 1 , 1] , "ro")
+    plt.plot(X_iris[ y_iris == 2 , 0 ],  X_iris[y_iris == 2 , 1] , "go")
+    plt.xlabel("petal length (cm)")
+    plt.ylabel("petal width (cm)")
+    
+    plt.show()
+ 
 if __name__ == "__main__":
     main()
 
